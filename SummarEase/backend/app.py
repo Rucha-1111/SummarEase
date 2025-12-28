@@ -51,4 +51,6 @@ def summarize():
         return jsonify({"error": "Server error"}), 500
 
 if __name__ == "__main__":
-    app.run()
+    # Render provides a PORT environment variable. If not found, it uses 5000.
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)

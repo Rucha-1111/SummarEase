@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         summaryDiv.innerText = "Summarizing... ⏳";
 
         try {
-            const response = await fetch("https://http://127.0.0.1:5000.render.com/summarize", {
+            const response = await fetch("https://my-summarEase-backend-url-render/summarize", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ text: text })
