@@ -1,0 +1,68 @@
+body {
+    width: 320px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f9f9f9;
+    color: #333;
+}
+
+.container {
+    padding: 16px;
+}
+
+header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.logo {
+    width: 24px;
+    height: 24px;
+}
+
+h1 {
+    font-size: 18px;
+    margin: 0;
+    color: #2c3e50;
+}
+
+#summary-container {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 12px;
+    min-height: 100px;
+    max-height: 300px;
+    overflow-y: auto;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+#summary {
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0;
+    white-space: pre-wrap;
+    /* Preserves formatting from AI */
+}
+
+.footer {
+    margin-top: 15px;
+    text-align: center;
+    font-size: 11px;
+    color: #95a5a6;
+}
+
+/* Scrollbar styling for a cleaner look */
+#summary-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+#summary-container::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 10px;
+}
