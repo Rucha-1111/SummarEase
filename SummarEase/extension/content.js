@@ -75,7 +75,17 @@ async function summarizeText(selectedText) {
     }
 
     // ✨ NEW: Use data.summary (which matches your Flask return key)
-    let summary = data.summary;
+    let summary = data.summary || "No summary received. Try again.";
+
+    // ✨ NEW: If the summary is an error message, treat it as an error
+    if (summary === "AI response error. Please try again.") {
+      throw new Error("AI response error. Please try again.");
+    }
+
+    // ✨ NEW: If summary is still the fallback, treat it as an error
+    if (summary === "No summary received. Try again.") {
+      throw new Error("No summary received. Try again.");
+    }
 
     popup.innerHTML = `
       <div class="summary" style="max-width:320px;max-height:200px;overflow-y:auto;font-size:14px;margin-bottom:10px;line-height:1.4;">
