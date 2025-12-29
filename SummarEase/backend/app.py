@@ -40,6 +40,8 @@ def summarize():
         response = requests.post(API_URL, headers=headers, json={"inputs": formatted_input})
         result = response.json()
 
+        print(f"DEBUG: Hugging Face Response -> {result}")
+
         # If model is loading, HF returns an 'estimated_time'
         if "error" in result and "currently loading" in result["error"]:
             return jsonify({"error": "AI is warming up, try again in 20 seconds"}), 503
