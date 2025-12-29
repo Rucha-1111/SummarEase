@@ -36,14 +36,18 @@ def summarize():
         return jsonify({"error": "Text too long (max 3000 chars)"}), 400
 
     try:
-        response = requests.post(API_URL, headers=headers, json={"inputs": text})
+        formatted_input = f"summarize: {text}"
+        response = requests.post(API_URL, headers=headers, json={"inputs": formatted_input})
         result = response.json()
 
         # If model is loading, HF returns an 'estimated_time'
         if "error" in result and "currently loading" in result["error"]:
             return jsonify({"error": "AI is warming up, try again in 20 seconds"}), 503
 
-        summary = result[0].get("summary_text", "Could not generate summary.")
+        if isinstance(result, list) and len(result) > 0:
+            summary = result[0].get("summary_text", "Could not generate summary.")
+        else:
+            summary = "AI response error. Please try again."
         return jsonify({"summary": summary})
 
     except Exception as e:
