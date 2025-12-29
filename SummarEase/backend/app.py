@@ -6,13 +6,11 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app) # Allows extension to talk to backend
+CORS(app)
 
-# Rate limiting: 5 requests per minute per user to prevent abuse
 limiter = Limiter(
     get_remote_address,
     app=app,
@@ -20,43 +18,68 @@ limiter = Limiter(
 )
 
 HF_TOKEN = os.getenv("HF_TOKEN")
-API_URL = "https://router.huggingface.co/hf-inference/models/google-t5/t5-small"
-headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+
+API_URL = "https://api-inference.huggingface.co/models/google-t5/t5-small"
+HEADERS = {
+    "Authorization": f"Bearer {HF_TOKEN}",
+    "Content-Type": "application/json"
+}
 
 @app.route("/summarize", methods=["POST"])
 @limiter.limit("5 per minute")
 def summarize():
-    data = request.get_json()
-    text = data.get("text", "")
+    data = request.get_json(force=True)
+    text = data.get("text", "").strip()
 
-    if not text or len(text) < 50:
-        return jsonify({"error": "Text too short (min 50 chars)"}), 400
+    # ✅ Character-based validation (MATCH FRONTEND)
+    if len(text) < 200:
+        return jsonify({"error": "Text too short (min 200 characters)"}), 400
 
     if len(text) > 3000:
-        return jsonify({"error": "Text too long (max 3000 chars)"}), 400
+        return jsonify({"error": "Text too long (max 3000 characters)"}), 400
+
+    payload = {
+        "inputs": f"summarize: {text}",
+        "parameters": {
+            "max_length": 120,
+            "min_length": 40,
+            "do_sample": False
+        }
+    }
 
     try:
-        formatted_input = f"summarize: {text}"
-        response = requests.post(API_URL, headers=headers, json={"inputs": formatted_input})
+        response = requests.post(
+            API_URL,
+            headers=HEADERS,
+            json=payload,
+            timeout=12  # 🚀 prevents hanging
+        )
+
         result = response.json()
 
-        print(f"DEBUG: Hugging Face Response -> {result}")
+        # 🧠 Model loading / overload
+        if isinstance(result, dict) and "error" in result:
+            if "loading" in result["error"].lower():
+                return jsonify({
+                    "error": "AI warming up. Try again in 10–15 seconds."
+                }), 503
+            return jsonify({"error": result["error"]}), 500
 
-        # If model is loading, HF returns an 'estimated_time'
-        if "error" in result and "currently loading" in result["error"]:
-            return jsonify({"error": "AI is warming up, try again in 20 seconds"}), 503
+        summary = result[0].get("summary_text", "").strip()
 
-        if isinstance(result, list) and len(result) > 0:
-            summary = result[0].get("summary_text", "Could not generate summary.")
-        else:
-            summary = "AI response error. Please try again."
+        if not summary:
+            return jsonify({"error": "Empty AI response"}), 500
+
         return jsonify({"summary": summary})
 
+    except requests.exceptions.Timeout:
+        return jsonify({"error": "AI timed out. Try again."}), 504
+
     except Exception as e:
-        print(f"Error: {e}")
-        return jsonify({"error": "Server error"}), 500
+        print("SERVER ERROR:", e)
+        return jsonify({"error": "Internal server error"}), 500
+
 
 if __name__ == "__main__":
-    # Render provides a PORT environment variable. If not found, it uses 5000.
     port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host="0.0.0.0", port=port)

@@ -1,95 +1,91 @@
 let popupElement = null;
 
-// 🧠 Detect when user selects text
+// 🧠 Detect text selection
 document.addEventListener("mouseup", (event) => {
-  // ✅ Prevent popup from disappearing when clicking inside it
   if (popupElement && popupElement.contains(event.target)) return;
 
   setTimeout(() => {
-    const selectedText = window.getSelection().toString().trim();
-    const wordCount = selectedText.split(/\s+/).length;
+    const selection = window.getSelection();
+    const selectedText = selection.toString().trim();
 
-    if (wordCount >= 50) {
-      showPopup(event.pageX, event.pageY, selectedText);
+    // ✅ MATCH BACKEND (character-based)
+    if (selectedText.length >= 200) {
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+
+      showPopup(
+        rect.right + window.scrollX,
+        rect.bottom + window.scrollY,
+        selectedText
+      );
     } else {
       removePopup();
     }
-  }, 100);
+  }, 50);
 });
 
-// 🪟 Create popup UI
+// 🪟 Create popup
 function showPopup(x, y, text) {
-  removePopup(); // remove existing popup if open
+  removePopup();
 
   popupElement = document.createElement("div");
   popupElement.className = "summarizer-popup";
+
   popupElement.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+    <div style="display:flex;gap:8px;justify-content:space-between;">
       <button id="summarizeBtn">Summarize</button>
-      <button id="closePopup" title="Close">×</button>
+      <button id="closePopup">×</button>
     </div>
   `;
 
-  document.body.appendChild(popupElement);
-  popupElement.style.position = "absolute";
-  popupElement.style.left = `${x}px`;
-  popupElement.style.top = `${y}px`;
-  popupElement.style.background = "white";
-  popupElement.style.border = "1px solid #ccc";
-  popupElement.style.borderRadius = "10px";
-  popupElement.style.padding = "10px";
-  popupElement.style.zIndex = "999999";
-  popupElement.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)";
-  popupElement.style.fontFamily = "Arial, sans-serif";
-  popupElement.style.minWidth = "150px";
-  popupElement.style.maxWidth = "350px";
+  Object.assign(popupElement.style, {
+    position: "absolute",
+    left: `${x}px`,
+    top: `${y}px`,
+    background: "#fff",
+    border: "1px solid #ccc",
+    borderRadius: "10px",
+    padding: "10px",
+    zIndex: "999999",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+    fontFamily: "Arial, sans-serif"
+  });
 
-  document.getElementById("summarizeBtn").addEventListener("click", () => summarizeText(text));
-  document.getElementById("closePopup").addEventListener("click", removePopup);
+  // 🛑 Prevent popup clicks from triggering mouseup listener
+  popupElement.addEventListener("mouseup", (e) => e.stopPropagation());
+
+  document.body.appendChild(popupElement);
+
+  document.getElementById("summarizeBtn").onclick = () => summarizeText(text);
+  document.getElementById("closePopup").onclick = removePopup;
 }
 
 // 🧹 Remove popup
 function removePopup() {
-  if (popupElement) {
-    popupElement.remove();
-    popupElement = null;
-  }
+  popupElement?.remove();
+  popupElement = null;
 }
 
+// ⚡ Summarize request
 async function summarizeText(selectedText) {
-  const popup = document.querySelector(".summarizer-popup");
-  popup.innerHTML = `<div class="loading" style="font-size:14px;">Summarizing... ⏳</div>`;
+  popupElement.innerHTML = `<div style="font-size:14px;">⏳ Summarizing...</div>`;
 
   try {
-    const response = await fetch("https://my-summarease-backend-url-render.onrender.com/summarize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: selectedText })
-    });
+    const response = await fetch(
+      "https://my-summarease-backend-url-render.onrender.com/summarize",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: selectedText })
+      }
+    );
 
     const data = await response.json();
+    if (!response.ok) throw new Error(data.error);
 
-    // ✨ NEW: Check if the server returned an error (like 400, 500, or 503)
-    if (!response.ok) {
-      throw new Error(data.error || "Server error");
-    }
-
-    // ✨ NEW: Use data.summary (which matches your Flask return key)
-    let summary = data.summary || "No summary received. Try again.";
-
-    // ✨ NEW: If the summary is an error message, treat it as an error
-    if (summary === "AI response error. Please try again.") {
-      throw new Error("AI response error. Please try again.");
-    }
-
-    // ✨ NEW: If summary is still the fallback, treat it as an error
-    if (summary === "No summary received. Try again.") {
-      throw new Error("No summary received. Try again.");
-    }
-
-    popup.innerHTML = `
-      <div class="summary" style="max-width:320px;max-height:200px;overflow-y:auto;font-size:14px;margin-bottom:10px;line-height:1.4;">
-        ${summary}
+    popupElement.innerHTML = `
+      <div style="max-height:200px;overflow:auto;font-size:14px;margin-bottom:8px;">
+        ${data.summary}
       </div>
       <div style="display:flex;gap:8px;justify-content:flex-end;">
         <button id="copySummary">Copy</button>
@@ -97,22 +93,16 @@ async function summarizeText(selectedText) {
       </div>
     `;
 
-    document.getElementById("copySummary").addEventListener("click", () => {
-      navigator.clipboard.writeText(summary);
-      alert("✅ Summary copied to clipboard!");
-    });
+    document.getElementById("copySummary").onclick = () =>
+      navigator.clipboard.writeText(data.summary);
 
-    document.getElementById("closePopup").addEventListener("click", removePopup);
+    document.getElementById("closePopup").onclick = removePopup;
 
   } catch (err) {
-    // ✨ NEW: This now displays the ACTUAL error message from your Flask backend
-    popup.innerHTML = `
-      <div class="error" style="color:red; font-size:13px; margin-bottom:10px;">
-        ❌ ${err.message}
-      </div>
+    popupElement.innerHTML = `
+      <div style="color:red;font-size:13px;">❌ ${err.message}</div>
       <button id="closePopup" style="float:right;">Close</button>
     `;
-    document.getElementById("closePopup").addEventListener("click", removePopup);
-    console.error("Error while summarizing:", err);
+    document.getElementById("closePopup").onclick = removePopup;
   }
 }
